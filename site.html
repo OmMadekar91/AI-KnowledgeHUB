@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KnowledgeHub | Enterprise RAG AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-light: #818cf8;
+            --bg: #0f172a;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #10b981;
+            --danger: #ef4444;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at top right, #1e1b4b, #0f172a);
+            color: var(--text-main);
+            min-height: 100vh;
+        }
+
+        nav {
+            padding: 1.5rem 8%;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 1000;
+        }
+
+        .logo { font-weight: 800; font-size: 1.4rem; background: linear-gradient(to right, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: flex; align-items: center; gap: 12px; }
+
+        .dashboard-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px;
+            padding: 40px 8%; max-width: 1400px; margin: 0 auto;
+        }
+
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            padding: 30px;
+        }
+
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        h3 { margin: 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+
+        .drop-zone { border: 2px dashed rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 30px; text-align: center; cursor: pointer; transition: 0.3s; }
+        .drop-zone:hover { border-color: var(--primary-light); background: rgba(255, 255, 255, 0.03); }
+        
+        .btn { background: var(--primary); color: white; border: none; padding: 14px; border-radius: 16px; font-weight: 700; cursor: pointer; width: 100%; transition: 0.3s; }
+        .btn:hover { background: var(--primary-light); transform: translateY(-2px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        #queryInput {
+            width: 100%; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border);
+            padding: 16px 20px; border-radius: 14px; color: white; margin-bottom: 12px; outline: none; box-sizing: border-box;
+        }
+
+        .stat-box { background: rgba(255, 255, 255, 0.02); padding: 20px; border-radius: 24px; border: 1px solid var(--glass-border); text-align: center; }
+        .emoji-display { font-size: 2.5rem; margin-bottom: 5px; }
+        
+        .summary-box { background: rgba(99, 102, 241, 0.1); border-radius: 16px; padding: 18px; border-left: 4px solid var(--primary); margin-bottom: 20px; font-weight: 600; font-size: 0.95rem; }
+
+        .key-points-box { background: rgba(16, 185, 129, 0.05); border-radius: 16px; padding: 18px; border: 1px solid var(--glass-border); margin-bottom: 20px; }
+        .key-points-list { font-size: 0.85rem; color: var(--text-muted); padding-left: 1.2rem; margin: 0; }
+        .key-points-list li { margin-bottom: 8px; line-height: 1.5; }
+
+        .btn-action { background: none; border: 1px solid var(--glass-border); color: var(--text-muted); padding: 6px 12px; border-radius: 10px; font-size: 0.7rem; cursor: pointer; transition: 0.3s; }
+        .btn-action:hover { color: var(--danger); border-color: var(--danger); }
+
+        @media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="logo"><i class="fas fa-brain"></i> KNOWLEDGEHUB AI</div>
+    <div style="font-size: 0.75rem; color: var(--accent); border: 1px solid var(--accent); padding: 4px 12px; border-radius: 20px;">SYSTEM LIVE</div>
+</nav>
+
+<div class="dashboard-grid">
+    <div class="card">
+        <div class="card-header"><h3><i class="fas fa-file-import"></i> Ingestion</h3></div>
+        <div class="drop-zone" onclick="document.getElementById('pdfInput').click()">
+            <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: var(--primary-light); margin-bottom: 10px;"></i><br>
+            <span id="dropText" style="color: var(--text-muted); font-size: 0.8rem;">Select Academic PDF</span>
+            <input type="file" id="pdfInput" hidden onchange="updateFileName()">
+        </div>
+        <button class="btn" style="margin-top: 15px;" onclick="handleUpload()">Train Assistant</button>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><h3><i class="fas fa-bolt"></i> Engine Status</h3></div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="stat-box">
+                <div id="aiEmoji" class="emoji-display">🤖</div>
+                <div id="statusLabel" style="font-size: 0.65rem; letter-spacing: 1px;">AI READY</div>
+            </div>
+            <div class="stat-box">
+                <div id="docCount" class="emoji-display" style="font-weight: bold;">0</div>
+                <div style="font-size: 0.65rem; letter-spacing: 1px;">DOCS IN MEMORY</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3><i class="fas fa-vault"></i> Vault</h3>
+            <button class="btn-action" onclick="wipeAllData()"><i class="fas fa-trash-alt"></i> Wipe All</button>
+        </div>
+        <div id="fileList" style="max-height: 150px; overflow-y: auto;"></div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3><i class="fas fa-robot"></i> AI Assistant</h3>
+            <button class="btn-action" onclick="clearAssistant()"><i class="fas fa-eraser"></i> Clear</button>
+        </div>
+        <input type="text" id="queryInput" placeholder="Ask a specific question...">
+        <button class="btn" id="askBtn" onclick="handleSearch()">Query Document</button>
+        
+        <div id="searchResults" style="margin-top: 25px;">
+            <p style="text-align: center; opacity: 0.3; font-size: 0.8rem;">Ready for query.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = "http://127.0.0.1:5000";
+
+    function updateStatus(state) {
+        const emoji = document.getElementById('aiEmoji');
+        const label = document.getElementById('statusLabel');
+        const states = {
+            'idle': { icon: '🤖', text: 'AI READY' },
+            'working': { icon: '⚙️', text: 'PROCESSING...' },
+            'success': { icon: '✅', text: 'COMPLETE' },
+            'error': { icon: '❌', text: 'ERROR' }
+        };
+        if (states[state]) {
+            emoji.innerText = states[state].icon;
+            label.innerText = states[state].text;
+        }
+    }
+
+    function updateFileName() {
+        const input = document.getElementById('pdfInput');
+        const dropText = document.getElementById('dropText');
+        if(input.files[0]) {
+            dropText.innerText = input.files[0].name;
+            dropText.style.color = "var(--primary-light)";
+        }
+    }
+
+    function clearAssistant() {
+        document.getElementById('queryInput').value = "";
+        document.getElementById('searchResults').innerHTML = '<p style="text-align: center; opacity: 0.3; font-size: 0.8rem;">Assistant reset.</p>';
+        updateStatus('idle');
+    }
+
+    async function handleUpload() {
+        const input = document.getElementById('pdfInput');
+        const dropText = document.getElementById('dropText');
+        if(!input.files[0]) return;
+        
+        updateStatus('working');
+        const formData = new FormData();
+        formData.append('pdf_file', input.files[0]);
+        
+        try {
+            const res = await fetch(`${API_URL}/upload`, { method: 'POST', body: formData });
+            if(res.ok) {
+                updateStatus('success');
+                loadFiles();
+                input.value = ""; 
+                dropText.innerText = "Select Academic PDF";
+                dropText.style.color = "var(--text-muted)";
+            } else { throw new Error("Upload failed"); }
+        } catch (e) { updateStatus('error'); }
+    }
+
+    async function handleSearch() {
+        const query = document.getElementById('queryInput').value;
+        const resDiv = document.getElementById('searchResults');
+        const askBtn = document.getElementById('askBtn');
+        if(!query) return;
+
+        askBtn.disabled = true;
+        updateStatus('working');
+        resDiv.innerHTML = `<p style="text-align:center; opacity:0.5;"><i class="fas fa-spinner fa-spin"></i> Extracting...</p>`;
+
+        try {
+            const response = await fetch(`${API_URL}/search`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ q: query })
+            });
+            const data = await response.json();
+            const sa = data.structured_answer;
+
+            const keyPointsHtml = sa.key_points.map(point => `<li>${point}</li>`).join('');
+
+            resDiv.innerHTML = `
+                <div class="summary-box">${sa.summary}</div>
+                <div class="key-points-box">
+                    <h4 style="margin:0 0 10px 0; color:var(--accent); font-size:0.65rem; text-transform:uppercase;">Key Findings</h4>
+                    <ul class="key-points-list">${keyPointsHtml}</ul>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:8px; border-top: 1px solid var(--glass-border); padding-top: 12px;">
+                    ${data.sources.map(s => `<span style="font-size:0.55rem; color:var(--text-muted);"><i class="far fa-file"></i> ${s.file} (p.${s.page})</span>`).join('')}
+                </div>
+            `;
+            updateStatus('success');
+        } catch (e) { 
+            updateStatus('error'); 
+            resDiv.innerHTML = `<p style="color:var(--danger); text-align:center;">Query Failed.</p>`; 
+        } finally { askBtn.disabled = false; }
+    }
+
+    async function wipeAllData() {
+        if(!confirm("Wipe memory?")) return;
+        await fetch(`${API_URL}/wipe_all`, { method: 'POST' });
+        loadFiles();
+        clearAssistant();
+    }
+
+    async function loadFiles() {
+        try {
+            const res = await fetch(`${API_URL}/files`);
+            const data = await res.json();
+            document.getElementById('docCount').innerText = data.files.length;
+            document.getElementById('fileList').innerHTML = data.files.map(f => `
+                <div style="padding:8px 12px; background:rgba(255,255,255,0.02); border:1px solid var(--glass-border); border-radius:10px; margin-bottom:5px; font-size:0.7rem; display:flex; align-items:center;">
+                    <i class="far fa-file-pdf" style="color:var(--danger); margin-right:8px;"></i> ${f}
+                </div>
+            `).join('');
+        } catch(e) {}
+    }
+
+    window.onload = loadFiles;
+</script>
+</body>
+</html>

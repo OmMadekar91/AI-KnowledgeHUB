@@ -1,6 +1,12 @@
-venv/
-.env
-uploads/
-chroma_db/
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+venv/
+.venv/
+instance/
+.pytest_cache/
+.env
+chroma_db/
+uploads/
+.DS_Store
+Thumbs.db

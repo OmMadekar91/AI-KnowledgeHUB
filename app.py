@@ -1,142 +1,169 @@
 import os
+import shutil
 import logging
-import webbrowser 
+import webbrowser
 from pathlib import Path
-from typing import List, Dict, Any
-from pydantic import BaseModel, Field
-from flask import Flask, request, jsonify, send_from_directory, render_template
+from threading import Timer
+from flask import Flask, request, jsonify, render_template_string
 from flask_cors import CORS
 from dotenv import load_dotenv
 
-#1. Configuration for cross-platforms.
-load_dotenv()
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("EnterpriseRAG")
-
-BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_FOLDER = BASE_DIR / "uploads"
-DB_FOLDER = BASE_DIR / "chroma_db"
-
-# Ensure directories exist.
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(DB_FOLDER, exist_ok=True)
-
-# Core LangChain and Google GenAI imports.
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+# --- AI & Vector Search Libraries ---
+from langchain_mistralai import ChatMistralAI
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel, Field
+from typing import List
 
-# Setup of Gemini-API key.
-API_KEY = os.getenv("GEMINI_API_KEY")
-os.environ["GOOGLE_API_KEY"] = API_KEY
+# 1. SETUP & DIRECTORIES
+load_dotenv()
+# Basic logging to see what's happening in the terminal
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
+BASE_PATH = Path(__file__).resolve().parent
+PDF_STORAGE = BASE_PATH / "uploads"
+VECTOR_DB_DIR = BASE_PATH / "chroma_db"
+
+# Create folders if they don't exist
+PDF_STORAGE.mkdir(exist_ok=True)
+VECTOR_DB_DIR.mkdir(exist_ok=True)
+
+# 2. API KEY VALIDATION
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+if not MISTRAL_API_KEY:
+    print("ERROR: Please add MISTRAL_API_KEY to your .env file!")
+    exit()
 
 app = Flask(__name__)
 CORS(app)
 
-#2. for automation of backend and frontend.
+# 3. DEFINE THE OUTPUT DATA STRUCTURE (Pydantic Model)
+class AIResponseSchema(BaseModel):
+    summary: str = Field(description="The direct, short answer to the user's question. Max 15 words.")
+    key_points: List[str] = Field(description="List of 3-5 specific facts relevant to the query.")
+
+# 4. INITIALIZE AI MODELS
+print("--- Loading Local CLIP Model (This might take a moment)... ---")
+# Local embeddings
+local_embed_model = HuggingFaceEmbeddings(model_name="sentence-transformers/clip-ViT-B-32")
+
+# Mistral model selection 
+ai_brain = ChatMistralAI(
+    model="mistral-large-latest", 
+    temperature=0,
+    api_key=MISTRAL_API_KEY
+)
+# Connect the brain to our structured output
+smart_llm = ai_brain.with_structured_output(AIResponseSchema)
+
+# Backend Logic
+
 @app.route("/")
-def index():
-    """Serves the site.html file from the templates folder."""
-    try:
-        return render_template("site.html")
-    except Exception as e:
-        return f"Error: Could not find site.html inside the templates folder. {str(e)}", 404
-
-#3. For structured output of AI search.
-class EnterpriseKnowledgeResponse(BaseModel):
-    summary: str = Field(description="A 1-2 sentence high-level summary of the answer.")
-    detailed_answer: str = Field(description="The comprehensive answer derived from the PDF context.")
-    key_points: List[str] = Field(description="3-5 bullet points highlighting critical facts.")
-    confidence_score: float = Field(description="A value between 0 and 1 indicating certainty.")
-
-#4. Model selection for AI search.
-embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
-base_llm = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash-lite", temperature=0)
-structured_llm = base_llm.with_structured_output(EnterpriseKnowledgeResponse)
+def home_page():
+    """Serves the frontend site.html file"""
+    with open(BASE_PATH / "site.html", "r", encoding="utf-8") as f:
+        return render_template_string(f.read())
 
 @app.route("/upload", methods=["POST"])
-def upload():
-    file = request.files.get("pdf_file")
-    if not file: return "No file", 400
-    file_path = os.path.join(UPLOAD_FOLDER, file.filename)
-    file.save(file_path)
-
+def process_pdf():
+    """Handles PDF upload and Vector DB indexing"""
     try:
-        loader = PyPDFLoader(file_path)
-        data = loader.load()
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
-        chunks = text_splitter.split_documents(data)
+        uploaded_file = request.files.get("pdf_file")
+        if not uploaded_file:
+            return jsonify({"error": "No file uploaded"}), 400
+        
+        # Save the file locally
+        save_path = PDF_STORAGE / uploaded_file.filename
+        uploaded_file.save(str(save_path))
+        
+        # Loading and Splitting the PDF into small chunks for search
+        pdf_loader = PyPDFLoader(str(save_path))
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
+        content_chunks = text_splitter.split_documents(pdf_loader.load())
+        
+        # Reseting DB to remove old data issues
+        if VECTOR_DB_DIR.exists():
+            shutil.rmtree(VECTOR_DB_DIR)
+            VECTOR_DB_DIR.mkdir()
 
+        # Creating the searchable database
         Chroma.from_documents(
-            documents=chunks, 
-            embedding=embeddings, 
-            persist_directory=str(DB_FOLDER)
+            documents=content_chunks, 
+            embedding=local_embed_model, 
+            persist_directory=str(VECTOR_DB_DIR)
         )
-        return jsonify({"message": f"Successfully ingested {len(chunks)} chunks."})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        
+        return jsonify({"message": f"Successfully learned from: {uploaded_file.filename}"})
+    
+    except Exception as err:
+        logging.error(f"Upload Crash: {err}")
+        return jsonify({"error": str(err)}), 500
 
 @app.route("/search", methods=["POST"])
-def ai_search():
-    query = request.json.get("q")
-    if not query: return jsonify({"error": "No query provided"}), 400
-
-    vector_db = Chroma(persist_directory=str(DB_FOLDER), embedding_function=embeddings)
-    retriever = vector_db.as_retriever(search_kwargs={"k": 5}) 
-
+def ask_question():
+    """Searches the PDF and returns Key Findings"""
+    user_query = request.json.get("q")
     try:
-        docs = retriever.invoke(query)
-        context_text = "\n\n".join([doc.page_content for doc in docs])
-
-        system_prompt = (
-            "You are a professional enterprise assistant. Use the provided context to answer. "
-            "Strictly follow the output schema.\n\nContext:\n{context}"
-        )
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
+        # Connecting to existing database
+        vector_store = Chroma(persist_directory=str(VECTOR_DB_DIR), embedding_function=local_embed_model)
+        
+        # Find the top 4 most relevant parts of the PDF
+        matched_docs = vector_store.as_retriever(search_kwargs={"k": 4}).invoke(user_query)
+        context_text = "\n\n".join([doc.page_content for doc in matched_docs])
+        
+        # System instructions for universal PDF analysis
+        # System instructions for concise, relevant data extraction
+        chat_prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are a precision data extractor. 
+            Answer strictly and concisely using only the provided context: {context}
+            
+            Rules:
+            1. If the user asks for a specific value (like a PRN, Date, or Grade), provide ONLY that value in the summary.
+            2. Do not explain what the document is. 
+            3. Do not use filler phrases like 'The document mentions...' or 'Based on the context...'.
+            4. In key_points, list only 3-5 high-impact relevant facts."""),
             ("human", "{input}"),
         ])
-
-        chain = prompt | structured_llm
-        result = chain.invoke({"context": context_text, "input": query})
         
-        sources = [
-            {"file": os.path.basename(doc.metadata.get("source", "Unknown")), 
-             "page": doc.metadata.get("page", 0) + 1}
-            for doc in docs
-        ]
-
+        final_answer = (chat_prompt | smart_llm).invoke({"context": context_text, "input": user_query})
+        source_info = [{"file": Path(doc.metadata.get("source")).name, "page": doc.metadata.get("page", 0) + 1} for doc in matched_docs]
+        
         return jsonify({
             "structured_answer": {
-                "summary": result.summary,
-                "details": result.detailed_answer,
-                "key_points": result.key_points,
-                "confidence": result.confidence_score
+                "summary": final_answer.summary,
+                "key_points": final_answer.key_points
             },
-            "sources": sources
+            "sources": source_info
         })
-    except Exception as e:
-        return jsonify({"error": f"Search Error: {str(e)}"}), 500
+        
+    except Exception as err:
+        logging.error(f"Query Error: {err}")
+        return jsonify({"error": "Failed to generate answer"}), 500
+
+@app.route('/wipe_all', methods=['POST'])
+def reset_system():
+    """Clears all stored data and memory"""
+    shutil.rmtree(PDF_STORAGE, ignore_errors=True)
+    shutil.rmtree(VECTOR_DB_DIR, ignore_errors=True)
+    PDF_STORAGE.mkdir(exist_ok=True)
+    VECTOR_DB_DIR.mkdir(exist_ok=True)
+    return jsonify({"message": "All data wiped successfully!"})
 
 @app.route("/files", methods=["GET"])
-def list_files():
-    files = [f for f in os.listdir(UPLOAD_FOLDER) if f.endswith(".pdf")]
+def get_file_list():
+    """Lists all uploaded documents"""
+    files = [f.name for f in PDF_STORAGE.iterdir() if f.is_file()]
     return jsonify({"files": files})
 
-@app.route('/delete/<filename>', methods=['DELETE'])
-def delete_file(filename):
-    file_path = os.path.join(UPLOAD_FOLDER, filename)
-    try:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            return jsonify({"message": f"'{filename}' deleted."})
-        return jsonify({"error": "File not found."}), 404
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+# 6. RUN THE APPLICATION
+def launch_browser():
+    webbrowser.open_new("http://127.0.0.1:5000")
 
-#5. Automation of browser.
 if __name__ == "__main__":
-    webbrowser.open("http://127.0.0.1:5000")
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    # Open the browser automatically
+    Timer(1.5, launch_browser).start()
+    # Debug=False for final presentation stability
+    app.run(port=5000, debug=False)
