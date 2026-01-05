@@ -6,7 +6,7 @@ This project is an **Enterprise-grade Retrieval-Augmented Generation (RAG)** app
 ## 🚀 Key Features
 - **Universal Analysis**: Works with transcripts, invoices, reports, or any text-based PDF.
 - **Local Embeddings**: Uses `CLIP-ViT-B-32` locally to ensure no API limits on document indexing.
-- **Structured Insights**: Automatically generates a one-sentence summary and a list of key findings.
+- **Structured Insights**: Automatically generates a concise summary and a list of key findings.
 - **Glassmorphism UI**: A modern, responsive dashboard with real-time system status indicators.
 
 ## 🛠️ Tech Stack
@@ -16,14 +16,25 @@ This project is an **Enterprise-grade Retrieval-Augmented Generation (RAG)** app
 - **Vector Database**: ChromaDB.
 - **Embeddings**: Sentence-Transformers (CLIP).
 
-## ⚙️ Setup Instructions
+## 📂 Project Structure
+```text
+AI-KnowledgeHUB/
+├── app.py              # Flask Backend & AI Logic
+├── site.html           # Frontend UI
+├── requirements.txt    # Python Dependencies
+├── .env                # API Keys (Keep Private!)
+├── .gitignore          # Git exclusion rules
+├── uploads/            # Stored PDF files
+└── chroma_db/          # Vector Database files
 
-### 1. Clone the Repository
-```bash
-git clone <your-repo-link>
-cd <project-folder>
+Setup Instructions
+1. Clone the Repository
+Bash
 
-Install Dependencies
+git clone [https://github.com/OmMadekar91/AI-KnowledgeHUB.git](https://github.com/OmMadekar91/AI-KnowledgeHUB.git)
+cd AI-KnowledgeHUB
+
+2. Install Dependencies
 Bash
 
 pip install -r requirements.txt
@@ -33,8 +44,9 @@ Create a .env file in the root directory and add your Mistral API key:
 Code snippet
 
 MISTRAL_API_KEY=your_actual_key_here
+
 4. Run the Application
 Bash
 
 python app.py
-The application will automatically open in your default browser at http://127.0.0.1:5000.
+The application will automatically open at http://127.0.0.1:5000

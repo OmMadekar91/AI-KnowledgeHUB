@@ -46,7 +46,7 @@ class AIResponseSchema(BaseModel):
     key_points: List[str] = Field(description="List of 3-5 specific facts relevant to the query.")
 
 # 4. INITIALIZE AI MODELS
-print("--- Loading Local CLIP Model (This might take a moment)... ---")
+print("Loading Local CLIP Model")
 # Local embeddings
 local_embed_model = HuggingFaceEmbeddings(model_name="sentence-transformers/clip-ViT-B-32")
 
@@ -69,7 +69,7 @@ def home_page():
 
 @app.route("/upload", methods=["POST"])
 def process_pdf():
-    """Handles PDF upload and Vector DB indexing"""
+    "Handles PDF upload and Vector DB indexing"
     try:
         uploaded_file = request.files.get("pdf_file")
         if not uploaded_file:
@@ -118,13 +118,13 @@ def ask_question():
         # System instructions for concise, relevant data extraction
         chat_prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a precision data extractor. 
-            Answer strictly and concisely using only the provided context: {context}
+            Answer strictly a one liner using the provided context: {context}
             
             Rules:
-            1. If the user asks for a specific value (like a PRN, Date, or Grade), provide ONLY that value in the summary.
-            2. Do not explain what the document is. 
+            1. If the user asks for a specific value (like a PRN, Date, or Grade), provide simple line with value in the summary.
+            2. Do not explain what the document is just explain when asked. 
             3. Do not use filler phrases like 'The document mentions...' or 'Based on the context...'.
-            4. In key_points, list only 3-5 high-impact relevant facts."""),
+            4. In key_points, list only 4-5 high-impact relevant facts."""),
             ("human", "{input}"),
         ])
         
