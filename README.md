@@ -34,19 +34,3 @@ Bash
 git clone https://github.com/OmMadekar91/AI-KnowledgeHUB.git
 cd AI-KnowledgeHUB
 
-2. Install Dependencies
-Bash
-
-pip install -r requirements.txt
-3. Environment Configuration
-Create a .env file in the root directory and add your Mistral API key:
-
-Code snippet
-
-MISTRAL_API_KEY=your_actual_key_here
-
-4. Run the Application
-Bash
-
-python app.py
-The application will automatically open at http://127.0.0.1:5000
