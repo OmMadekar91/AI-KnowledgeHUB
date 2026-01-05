@@ -8,7 +8,7 @@ from flask import Flask, request, jsonify, render_template_string
 from flask_cors import CORS
 from dotenv import load_dotenv
 
-# --- AI & Vector Search Libraries ---
+# AI & Vector Search Libraries 
 from langchain_mistralai import ChatMistralAI
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
@@ -18,7 +18,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 from typing import List
 
-# 1. SETUP & DIRECTORIES
+# SETUP & DIRECTORIES
 load_dotenv()
 # Basic logging to see what's happening in the terminal
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -31,7 +31,7 @@ VECTOR_DB_DIR = BASE_PATH / "chroma_db"
 PDF_STORAGE.mkdir(exist_ok=True)
 VECTOR_DB_DIR.mkdir(exist_ok=True)
 
-# 2. API KEY VALIDATION
+# API KEY VALIDATION
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 if not MISTRAL_API_KEY:
     print("ERROR: Please add MISTRAL_API_KEY to your .env file!")
@@ -40,12 +40,12 @@ if not MISTRAL_API_KEY:
 app = Flask(__name__)
 CORS(app)
 
-# 3. DEFINE THE OUTPUT DATA STRUCTURE (Pydantic Model)
+# DEFINE THE OUTPUT DATA STRUCTURE (Pydantic Model)
 class AIResponseSchema(BaseModel):
     summary: str = Field(description="The direct, short answer to the user's question. Max 15 words.")
     key_points: List[str] = Field(description="List of 3-5 specific facts relevant to the query.")
 
-# 4. INITIALIZE AI MODELS
+# INITIALIZE AI MODELS
 print("Loading Local CLIP Model")
 # Local embeddings
 local_embed_model = HuggingFaceEmbeddings(model_name="sentence-transformers/clip-ViT-B-32")
@@ -114,7 +114,6 @@ def ask_question():
         matched_docs = vector_store.as_retriever(search_kwargs={"k": 4}).invoke(user_query)
         context_text = "\n\n".join([doc.page_content for doc in matched_docs])
         
-        # System instructions for universal PDF analysis
         # System instructions for concise, relevant data extraction
         chat_prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a precision data extractor. 
