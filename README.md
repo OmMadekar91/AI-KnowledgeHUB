@@ -31,7 +31,7 @@ Setup Instructions
 1. Clone the Repository
 Bash
 
-git clone [https://github.com/OmMadekar91/AI-KnowledgeHUB.git](https://github.com/OmMadekar91/AI-KnowledgeHUB.git)
+git clone https://github.com/OmMadekar91/AI-KnowledgeHUB.git
 cd AI-KnowledgeHUB
 
 2. Install Dependencies
