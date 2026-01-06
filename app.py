@@ -7,7 +7,6 @@ from threading import Timer
 from flask import Flask, request, jsonify, render_template_string
 from flask_cors import CORS
 from dotenv import load_dotenv
-
 # AI & Vector Search Libraries 
 from langchain_mistralai import ChatMistralAI
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -18,7 +17,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 from typing import List
 
-# SETUP & DIRECTORIES
+# Setup and Directories
 load_dotenv()
 # Basic logging to see what's happening in the terminal
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -31,7 +30,7 @@ VECTOR_DB_DIR = BASE_PATH / "chroma_db"
 PDF_STORAGE.mkdir(exist_ok=True)
 VECTOR_DB_DIR.mkdir(exist_ok=True)
 
-# API KEY VALIDATION
+# API key calling
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 if not MISTRAL_API_KEY:
     print("ERROR: Please add MISTRAL_API_KEY to your .env file!")
@@ -40,12 +39,11 @@ if not MISTRAL_API_KEY:
 app = Flask(__name__)
 CORS(app)
 
-# DEFINE THE OUTPUT DATA STRUCTURE (Pydantic Model)
+# Defining the strucuted output (Pydantic Model)
 class AIResponseSchema(BaseModel):
     summary: str = Field(description="The direct, short answer to the user's question. Max 15 words.")
     key_points: List[str] = Field(description="List of 3-5 specific facts relevant to the query.")
 
-# INITIALIZE AI MODELS
 print("Loading Local CLIP Model")
 # Local embeddings
 local_embed_model = HuggingFaceEmbeddings(model_name="sentence-transformers/clip-ViT-B-32")
@@ -74,12 +72,9 @@ def process_pdf():
         uploaded_file = request.files.get("pdf_file")
         if not uploaded_file:
             return jsonify({"error": "No file uploaded"}), 400
-        
-        # Save the file locally
+            
         save_path = PDF_STORAGE / uploaded_file.filename
         uploaded_file.save(str(save_path))
-        
-        # Loading and Splitting the PDF into small chunks for search
         pdf_loader = PyPDFLoader(str(save_path))
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
         content_chunks = text_splitter.split_documents(pdf_loader.load())
@@ -110,11 +105,10 @@ def ask_question():
         # Connecting to existing database
         vector_store = Chroma(persist_directory=str(VECTOR_DB_DIR), embedding_function=local_embed_model)
         
-        # Find the top 4 most relevant parts of the PDF
         matched_docs = vector_store.as_retriever(search_kwargs={"k": 4}).invoke(user_query)
         context_text = "\n\n".join([doc.page_content for doc in matched_docs])
         
-        # System instructions for concise, relevant data extraction
+        #instructions for relevant data extraction
         chat_prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a precision data extractor. 
             Answer strictly a one liner using the provided context: {context}
@@ -156,8 +150,7 @@ def get_file_list():
     """Lists all uploaded documents"""
     files = [f.name for f in PDF_STORAGE.iterdir() if f.is_file()]
     return jsonify({"files": files})
-
-# 6. RUN THE APPLICATION
+    
 def launch_browser():
     webbrowser.open_new("http://127.0.0.1:5000")
 
