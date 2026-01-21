@@ -10,7 +10,7 @@ This project is an **Enterprise-grade Retrieval-Augmented Generation (RAG)** app
 - **Glassmorphism UI**: A modern, responsive dashboard with real-time system status indicators.
 
 ## 🛠️ Tech Stack
-- **Frontend**: HTML5, CSS3 (Glassmorphism), JavaScript (Fetch API).
+- **Frontend**: HTML5, CSS3 , JavaScript (Fetch API).
 - **Backend**: Python, Flask, Flask-CORS.
 - **AI/LLM**: Mistral AI (`mistral-large-latest`).
 - **Vector Database**: ChromaDB.
